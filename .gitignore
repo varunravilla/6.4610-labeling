@@ -15,3 +15,6 @@ backups/
 gemini_rejected.csv
 screen_cache.jsonl
 candidates.csv
+llm_cache.jsonl
+labels_llm_wide.csv
+labels_llm_long.csv
