@@ -44,3 +44,18 @@ def test_unparseable_answer_leaves_posts_unscreened_rather_than_failing(tmp_path
     results = screen(cands(50), FakeGemini(garble={1}), tmp_path / "cache.jsonl", batch_size=25)
     assert len(results) == 25
     assert "0" not in results and "49" in results
+
+
+def test_overloaded_model_falls_back_to_the_next_one(tmp_path):
+    from gemini_screen import FallbackClient
+    down, up = FakeGemini(fail_after=0), FakeGemini()
+    client = FallbackClient([("model-a", down), ("model-b", up)])
+    results = screen(cands(60), client, tmp_path / "cache.jsonl", batch_size=25)
+    assert len(results) == 60
+    assert client.used == {"model-b"}
+
+
+def test_all_models_down_stops_with_partial_results(tmp_path):
+    from gemini_screen import FallbackClient
+    client = FallbackClient([("a", FakeGemini(fail_after=1)), ("b", FakeGemini(fail_after=0))])
+    assert len(screen(cands(60), client, tmp_path / "cache.jsonl", batch_size=25)) == 25

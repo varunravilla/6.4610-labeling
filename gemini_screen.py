@@ -146,6 +146,26 @@ class RateLimited(Exception):
     pass
 
 
+class FallbackClient:
+    """Tries each (name, ask) in order; a model that stops (overload, quota) is dropped for the rest of the run."""
+
+    def __init__(self, models):
+        self.models = list(models)
+        self.used: set[str] = set()
+
+    def __call__(self, prompt: str, ids: list[str]) -> str:
+        while self.models:
+            name, ask = self.models[0]
+            try:
+                text = ask(prompt, ids)
+                self.used.add(name)
+                return text
+            except ScreenStopped as e:
+                print(f"{name} unavailable ({str(e)[:80]}); trying the next model.", flush=True)
+                self.models.pop(0)
+        raise ScreenStopped("every configured Gemini model is unavailable")
+
+
 def write_csv(path: Path, rows: list[dict], fields: list[str]) -> None:
     with open(path, "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
@@ -166,10 +186,14 @@ def main():
         results = _read_cache(cache)
     else:
         try:
-            client = GeminiClient(key, os.environ.get("GEMINI_MODEL"), float(os.environ.get("GEMINI_PAUSE_SECONDS", "7")))
-            model = client.model
-            print(f"Screening {len(candidates)} posts with {model}...", flush=True)
-            results = screen(candidates, client, cache, int(os.environ.get("GEMINI_BATCH_SIZE", "50")))
+            pause = float(os.environ.get("GEMINI_PAUSE_SECONDS", "7"))
+            names = [m.strip() for m in os.environ.get("GEMINI_MODEL", "").split(",") if m.strip()] or [None]
+            client = FallbackClient([(c.model, c) for c in (GeminiClient(key, n, pause) for n in names)])
+            print(f"Screening {len(candidates)} posts; models in order: {', '.join(n for n, _ in client.models)}", flush=True)
+            try:
+                results = screen(candidates, client, cache, int(os.environ.get("GEMINI_BATCH_SIZE", "50")))
+            finally:
+                model = ", ".join(sorted(client.used)) or None
         except ScreenStopped as e:
             stopped = str(e)
             results = _read_cache(cache)
