@@ -1,4 +1,4 @@
-"""Local preview without Supabase: serves site/ and answers /rest/v1/rpc/<fn> like PostgREST.
+"""Local preview without Supabase: serves docs/ and answers /rest/v1/rpc/<fn> like PostgREST.
 
     python dev_server.py --db postgresql://postgres@127.0.0.1:5432/postgres --port 8000
 
@@ -58,7 +58,7 @@ def main():
     ap.add_argument("--port", type=int, default=8000)
     args = ap.parse_args()
     Handler.db_url = args.db
-    server = ThreadingHTTPServer(("127.0.0.1", args.port), partial(Handler, directory=str(Path(__file__).parent / "site")))
+    server = ThreadingHTTPServer(("127.0.0.1", args.port), partial(Handler, directory=str(Path(__file__).parent / "docs")))
     print(f"Preview at http://127.0.0.1:{args.port}")
     server.serve_forever()
 

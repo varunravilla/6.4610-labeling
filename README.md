@@ -29,7 +29,7 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 cp .env.example .env              # fill in every PASTE_/PICK_ value
 .venv/bin/python build_candidates.py   # keyword queue -> candidates.csv, MANIFEST.txt
 .venv/bin/python gemini_screen.py      # relevance screen -> queue.csv, RUN.md
-.venv/bin/python load_supabase.py       # schema + site/config.js + posts + passcode, all from .env
+.venv/bin/python load_supabase.py       # schema + docs/config.js + posts + passcode, all from .env
 .venv/bin/python export.py             # any time: labels -> CSVs + agreement.txt
 ```
 

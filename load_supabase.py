@@ -2,7 +2,7 @@
 
     python load_supabase.py
 
-Reads everything from labeling/.env: applies schema.sql, writes site/config.js, loads
+Reads everything from labeling/.env: applies schema.sql, writes docs/config.js, loads
 queue.csv for ANNOTATORS, and sets TEAM_PASSCODE. Safe to rerun: once anyone has
 labeled, posts are frozen and only the schema, config, and passcode are updated.
 """
@@ -60,7 +60,7 @@ def read_queue(path: Path) -> list[dict]:
 
 
 def write_site_config(url: str, anon_key: str) -> None:
-    (HERE / "site" / "config.js").write_text(
+    (HERE / "docs" / "config.js").write_text(
         "// Written by load_supabase.py from .env. Public values: the anon key can only call the\n"
         "// labeling functions, and every write also needs the team passcode.\n"
         f"window.LABELING_CONFIG = {{\n  supabaseUrl: {json.dumps(url)},\n  supabaseAnonKey: {json.dumps(anon_key)},\n}};\n")
@@ -85,9 +85,9 @@ def main():
 
     if _env("SUPABASE_URL") and _env("SUPABASE_ANON_KEY"):
         write_site_config(_env("SUPABASE_URL").rstrip("/"), _env("SUPABASE_ANON_KEY"))
-        print("Wrote site/config.js. Commit and push it to update the live site.")
+        print("Wrote docs/config.js. Commit and push it to update the live site.")
     else:
-        print("SUPABASE_URL / SUPABASE_ANON_KEY not filled in; site/config.js left unchanged.")
+        print("SUPABASE_URL / SUPABASE_ANON_KEY not filled in; docs/config.js left unchanged.")
 
     with psycopg.connect(url, autocommit=True) as conn:
         apply_migration(conn)
