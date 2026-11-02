@@ -133,7 +133,8 @@ def _merge_sources(json_records: list[dict], csv_rows: list[dict]) -> list[dict]
     return posts
 
 
-def find_candidates(json_records: list[dict], csv_rows: list[dict], lexicon: list[tuple[int, str]]) -> CandidateResult:
+def find_candidates(json_records: list[dict], csv_rows: list[dict], lexicon: list[tuple[int, str]],
+                    tiers: set[int] = QUEUE_TIERS) -> CandidateResult:
     compiled = [(tier, term, _term_regex(term)) for tier, term in lexicon]
     posts = sorted(_merge_sources(json_records, csv_rows), key=lambda p: (p["created_at"], p["id"]))
 
@@ -168,16 +169,21 @@ def find_candidates(json_records: list[dict], csv_rows: list[dict], lexicon: lis
             result.excluded.append({**row, "reason": "no_keyword"})
         elif _ENDORSEMENT.search(norm):
             result.excluded.append({**row, "reason": "endorsement"})
-        elif row["tier"] not in QUEUE_TIERS:
+        elif row["tier"] not in tiers:
             result.excluded.append({**row, "reason": "tier3_only"})
         else:
             result.candidates.append(row)
     return result
 
 
-def order_queue(candidates: list[dict]) -> list[dict]:
-    """Newest post first. queue_group is 1 for the second term, 2 for earlier posts."""
-    rows = [{**c, "queue_group": 1 if c["era"] == "second_term" else 2} for c in candidates]
+def order_queue(candidates: list[dict], screen: dict[str, bool] | None = None) -> list[dict]:
+    """Newest post first. queue_group is 1 for the second term, 2 for earlier posts.
+
+    With a Gemini screen, posts it marked not relevant are left out. A post with no
+    answer stays in, so the queue still builds if the key fails partway."""
+    screen = screen or {}
+    rows = [{**c, "gemini_relevant": screen.get(c["id"]), "queue_group": 1 if c["era"] == "second_term" else 2}
+            for c in candidates if screen.get(c["id"]) is not False]
     rows.sort(key=lambda r: (r["created_at"], r["id"]), reverse=True)
     for rank, r in enumerate(rows, start=1):
         r["queue_rank"] = rank

@@ -5,6 +5,8 @@ Supersedes `LABELING_AGENT_BRIEF.md` wherever the two differ. Anything this spec
 
 > **Revision, 2026-11-02:** the Gemini relevance screen is dropped. The queue is now keyword-only: tier 1 + tier 2 matches, with posts containing "endorsement" removed. That gives 1,596 posts, ordered **newest first**, with no relevance groups. `queue_group` now only marks the era: 1 = second term, 2 = earlier. Tier 3 and partner-plus-money posts are left out and listed in `excluded.csv` with a reason. CSV text that had been decoded as Latin-1 upstream is repaired. Sections below that mention Gemini or the three-group order describe the original plan.
 
+> **Revision 2, 2026-11-02:** Gemini is back, now as the filter. Candidates are keyword tiers 1–3 with endorsements removed (3,529 posts). Gemini (`gemini-3.6-flash`, free tier, 50 posts per request) answers yes/no for relevance. Only "yes" posts enter the queue, newest first. Unscreened posts stay in. The 3 labels saved before this change were backed up to `labeling/backups/` and cleared.
+
 ## Problem Statement
 
 Our 6.4610 project (Wyatt Alford, Matthew Zhou, Varun Ravilla, Kevin Zhang) trains a classifier that predicts how a Trump Truth Social post affects specific industries, and tests whether those predictions help forecast industry ETF out-performance. That needs human labels: for each post, whether it is trade-related or market-relevant at all, and for each industry, whether the post implies a positive, negative, neutral, or uncertain effect.

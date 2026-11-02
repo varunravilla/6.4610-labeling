@@ -140,3 +140,13 @@ def test_progress_counts_done_posts_per_group_and_labels_per_person(api):
     p = a.call("progress", "Matthew", PASS)
     assert p["groups"] == [{"queue_group": 1, "total": 2, "done": 1}, {"queue_group": 2, "total": 1, "done": 0}]
     assert p["annotators"] == {"Kevin": 2, "Matthew": 0, "Varun": 0, "Wyatt": 0}
+
+
+def test_reset_backs_up_labels_then_allows_a_fresh_queue(api, admin, tmp_path):
+    from load_supabase import reset_labels
+    a = api([queue_row(1), queue_row(2)])
+    a.submit("Kevin", "p1")
+    backup = reset_labels(admin, tmp_path)
+    assert '"post_id": "p1"' in backup.read_text()
+    load_posts(admin, [queue_row(5)], NAMES)
+    assert a.next_post("Kevin")["id"] == "p5"

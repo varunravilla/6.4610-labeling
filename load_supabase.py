@@ -4,7 +4,8 @@
 
 Reads everything from labeling/.env: applies schema.sql, writes docs/config.js, loads
 queue.csv for ANNOTATORS, and sets TEAM_PASSCODE. Safe to rerun: once anyone has
-labeled, posts are frozen and only the schema, config, and passcode are updated.
+labeled, posts are frozen and only the schema, config, and passcode are updated;
+--reset backs up every label to backups/ and clears them so the queue can be reloaded.
 """
 from __future__ import annotations
 
@@ -42,6 +43,20 @@ def load_posts(conn, rows: list[dict], annotators: list[str]) -> None:
             )
 
 
+def reset_labels(conn, backup_dir: Path) -> Path:
+    """Save every label, gold row, and skip to a JSON file, then clear them so the queue can be reloaded."""
+    from datetime import datetime
+
+    backup_dir.mkdir(exist_ok=True)
+    path = backup_dir / f"labels_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    dump = {table: [dict(zip([d.name for d in cur.description], row)) for row in cur.fetchall()]
+            for table in ("labels", "gold", "skips")
+            for cur in [conn.execute(f"select * from {table}")]}
+    path.write_text(json.dumps(dump, indent=1, default=str))
+    conn.execute("delete from gold; delete from labels; delete from skips; delete from claims;")
+    return path
+
+
 def set_passcode(conn, passcode: str) -> None:
     conn.execute(
         "insert into settings (key, value) values ('passcode_hash', extensions.crypt(%s, extensions.gen_salt('bf')))"
@@ -75,6 +90,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--annotators", nargs="+", help="defaults to ANNOTATORS in .env")
     ap.add_argument("--passcode", help="defaults to TEAM_PASSCODE in .env")
+    ap.add_argument("--reset", action="store_true",
+                    help="back up all labels to backups/, delete them, and reload the queue")
     args = ap.parse_args()
     load_env()
     url = _env("SUPABASE_DB_URL")
@@ -92,6 +109,8 @@ def main():
     with psycopg.connect(url, autocommit=True) as conn:
         apply_migration(conn)
         print("Database tables and functions are up to date.")
+        if args.reset:
+            print(f"Backed up and cleared all labels: {reset_labels(conn, HERE / 'backups')}")
         if conn.execute("select exists (select 1 from labels)").fetchone()[0]:
             print("Labels already exist, so the queue is frozen; posts were not reloaded.")
         elif annotators:

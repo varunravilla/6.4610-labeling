@@ -145,3 +145,21 @@ def test_garbled_csv_text_is_repaired():
     garbled = "the healthcare of foreign countries\u00e2\u0080\u0094and we will put a Tariff on drugs from abroad"
     result = find_candidates([], [csv_row("1", garbled)], LEXICON)
     assert "countries\u2014and" in result.candidates[0]["text"]
+
+
+def test_tier_three_can_be_kept_for_screening():
+    result = find_candidates(
+        [post("weak", "Great crowd of workers and their cars at the rally in Michigan tonight. Thank you all!")],
+        [], LEXICON, tiers={1, 2, 3},
+    )
+    assert ids(result.candidates) == ["weak"]
+
+
+def test_gemini_no_leaves_the_queue_but_an_unscreened_post_stays():
+    rows = order_queue(
+        [cand("yes", created_at="2026-01-01T00:00:00.000Z"), cand("no"), cand("unscreened", created_at="2024-01-01T00:00:00.000Z", era="earlier")],
+        screen={"yes": True, "no": False},
+    )
+    assert ids(rows) == ["yes", "unscreened"]
+    assert [r["gemini_relevant"] for r in rows] == [True, None]
+    assert [r["queue_rank"] for r in rows] == [1, 2]

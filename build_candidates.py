@@ -42,12 +42,18 @@ def year_spread_sample(rows, n=100):
 
 
 def main():
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--tiers", nargs="+", type=int, default=[1, 2],
+                    help="keyword tiers to keep (use 1 2 3 before a Gemini screen)")
+    tiers = set(ap.parse_args().tiers)
     json_records = json.loads((ROOT / "data.json").read_text())
     with open(ROOT / "djt_posts_dec2025.csv", newline="") as f:
         csv_rows = list(csv.DictReader(f))
-    result = find_candidates(json_records, csv_rows, load_lexicon(HERE / "lexicon.txt"))
+    result = find_candidates(json_records, csv_rows, load_lexicon(HERE / "lexicon.txt"), tiers)
 
     queue = order_queue(result.candidates)
+    write_csv(HERE / "candidates.csv", queue, ["id", "created_at", "era", "tier", "matched_terms", "url", "text"])
     write_csv(HERE / "queue.csv", queue, ["queue_rank", "queue_group", "id", "created_at", "era", "tier",
                                           "matched_terms", "double_label", "url", "text"])
     write_csv(HERE / "excluded.csv", result.excluded, ["id", "created_at", "era", "reason", "tier", "matched_terms", "url", "text"])
@@ -64,7 +70,7 @@ def main():
     lines = [
         f"window_start\t{WINDOW_START}",
         f"window_end_exclusive\t{WINDOW_END}",
-        "rule\ttier 1 + tier 2 keyword match, endorsements removed, newest first",
+        f"rule\tkeyword tiers {sorted(tiers)}, endorsements removed, newest first",
         f"queue\t{len(queue)}",
         f"double_labeled\t{sum(r['double_label'] for r in queue)}",
         *[f"excluded\t{reason}\t{n}" for reason, n in sorted(reasons.items())],

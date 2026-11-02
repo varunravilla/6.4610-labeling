@@ -11,3 +11,7 @@ labels_long.csv
 gold.csv
 agreement.txt
 collect_report.txt
+backups/
+gemini_rejected.csv
+screen_cache.jsonl
+candidates.csv
