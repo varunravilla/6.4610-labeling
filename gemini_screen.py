@@ -156,7 +156,9 @@ def main():
     with open(HERE / "candidates.csv", newline="") as f:
         candidates = [{**r, "tier": int(r["tier"]), "matched_terms": r["matched_terms"].split("|")} for r in csv.DictReader(f)]
 
-    key, model, stopped = os.environ.get("GEMINI_API_KEY"), None, None
+    key, model, stopped = os.environ.get("GEMINI_API_KEY", "").strip(), None, None
+    if key.startswith("PASTE_"):
+        key = ""
     if not key:
         stopped = "GEMINI_API_KEY not set in labeling/.env"
         results = _read_cache(HERE / "screen_cache.jsonl")

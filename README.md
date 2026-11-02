@@ -26,10 +26,10 @@ The raw files `data.json` and `djt_posts_dec2025.csv` sit in the folder above th
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-cp .env.example .env              # fill in GEMINI_API_KEY and SUPABASE_DB_URL
+cp .env.example .env              # fill in every PASTE_/PICK_ value
 .venv/bin/python build_candidates.py   # keyword queue -> candidates.csv, MANIFEST.txt
 .venv/bin/python gemini_screen.py      # relevance screen -> queue.csv, RUN.md
-.venv/bin/python load_supabase.py --annotators Wyatt Matthew Varun Kevin --passcode 'TEAM-PASSCODE'
+.venv/bin/python load_supabase.py       # schema + site/config.js + posts + passcode, all from .env
 .venv/bin/python export.py             # any time: labels -> CSVs + agreement.txt
 ```
 
@@ -38,7 +38,7 @@ How `gemini_screen.py` handles problems:
 - **Resuming:** rerun it later to screen the rest. Answers are cached in `screen_cache.jsonl`.
 - **Before loading:** re-screening only changes the order, and only matters before `load_supabase.py`.
 
-The posts table freezes once anyone has labeled. After that, `load_supabase.py` refuses to reload posts. `--passcode` alone rotates the passcode.
+The posts table freezes once anyone has labeled. After that, `load_supabase.py` only updates the schema, `config.js` and the passcode, so change `TEAM_PASSCODE` and rerun to rotate it.
 
 ## Local preview without Supabase
 

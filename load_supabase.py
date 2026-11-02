@@ -1,14 +1,16 @@
 """Step 3: create the Supabase tables and functions, load the queue, set the passcode.
 
-    python load_supabase.py --annotators Wyatt Matthew Varun Kevin --passcode '<team passcode>'
+    python load_supabase.py
 
-Reads SUPABASE_DB_URL from labeling/.env. Refuses to reload posts once any label exists.
-Rerun with only --passcode to rotate the passcode.
+Reads everything from labeling/.env: applies schema.sql, writes site/config.js, loads
+queue.csv for ANNOTATORS, and sets TEAM_PASSCODE. Safe to rerun: once anyone has
+labeled, posts are frozen and only the schema, config, and passcode are updated.
 """
 from __future__ import annotations
 
 import argparse
 import csv
+import json
 import os
 import sys
 from pathlib import Path
@@ -57,25 +59,50 @@ def read_queue(path: Path) -> list[dict]:
                 for r in csv.DictReader(f)]
 
 
+def write_site_config(url: str, anon_key: str) -> None:
+    (HERE / "site" / "config.js").write_text(
+        "// Written by load_supabase.py from .env. Public values: the anon key can only call the\n"
+        "// labeling functions, and every write also needs the team passcode.\n"
+        f"window.LABELING_CONFIG = {{\n  supabaseUrl: {json.dumps(url)},\n  supabaseAnonKey: {json.dumps(anon_key)},\n}};\n")
+
+
+def _env(name: str) -> str | None:
+    value = os.environ.get(name, "").strip()
+    return None if not value or value.startswith(("PASTE_", "PICK_")) else value
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--annotators", nargs="+")
-    ap.add_argument("--passcode")
+    ap.add_argument("--annotators", nargs="+", help="defaults to ANNOTATORS in .env")
+    ap.add_argument("--passcode", help="defaults to TEAM_PASSCODE in .env")
     args = ap.parse_args()
     load_env()
-    url = os.environ.get("SUPABASE_DB_URL")
+    url = _env("SUPABASE_DB_URL")
     if not url:
-        raise SystemExit("Set SUPABASE_DB_URL in labeling/.env (Supabase > Connect > Session pooler URI).")
+        raise SystemExit("Fill in SUPABASE_DB_URL in labeling/.env (see .env.example).")
+    annotators = args.annotators or (_env("ANNOTATORS") or "").split()
+    passcode = args.passcode or _env("TEAM_PASSCODE")
+
+    if _env("SUPABASE_URL") and _env("SUPABASE_ANON_KEY"):
+        write_site_config(_env("SUPABASE_URL").rstrip("/"), _env("SUPABASE_ANON_KEY"))
+        print("Wrote site/config.js. Commit and push it to update the live site.")
+    else:
+        print("SUPABASE_URL / SUPABASE_ANON_KEY not filled in; site/config.js left unchanged.")
 
     with psycopg.connect(url, autocommit=True) as conn:
         apply_migration(conn)
-        if args.annotators:
+        print("Database tables and functions are up to date.")
+        if conn.execute("select exists (select 1 from labels)").fetchone()[0]:
+            print("Labels already exist, so the queue is frozen; posts were not reloaded.")
+        elif annotators:
             rows = read_queue(HERE / "queue.csv")
-            load_posts(conn, rows, args.annotators)
-            print(f"Loaded {len(rows)} posts for {', '.join(args.annotators)}.")
-        if args.passcode:
-            set_passcode(conn, args.passcode)
-            print("Passcode set.")
+            load_posts(conn, rows, annotators)
+            print(f"Loaded {len(rows)} posts for {', '.join(annotators)}.")
+        if passcode:
+            set_passcode(conn, passcode)
+            print("Team passcode set.")
+        else:
+            print("TEAM_PASSCODE not filled in; nobody can log in until it is set.")
 
 
 if __name__ == "__main__":
