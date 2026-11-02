@@ -136,7 +136,8 @@ class GeminiClient:
                 parts = data.get("candidates", [{}])[0].get("content", {}).get("parts", [])
                 return "".join(p.get("text", "") for p in parts)
             except RateLimited as e:
-                if "PerDay" in str(e) or attempt == 3:
+                # Out of quota (429): hand off to the next model now. Overloaded (503): wait and retry.
+                if '"code": 429' in str(e) or "RESOURCE_EXHAUSTED" in str(e) or attempt == 3:
                     raise ScreenStopped(f"rate limit: {e}") from e
                 time.sleep(30 * (attempt + 1))
         raise ScreenStopped("rate limit")
