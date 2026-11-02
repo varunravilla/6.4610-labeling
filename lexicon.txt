@@ -1,0 +1,248 @@
+1	tariff
+1	duty
+1	duties
+1	customs
+1	quota
+1	dumping
+1	anti-dumping
+1	countervailing
+1	section 232
+1	section 301
+1	ieepa
+1	usmca
+1	nafta
+1	wto
+1	gatt
+1	mfn
+1	most favored
+1	pntr
+1	tpp
+1	cptpp
+1	reciproc
+1	protectionis
+1	embargo
+1	blockade
+1	de minimis
+1	liberation day
+1	trade deal
+1	trade war
+1	trade deficit
+1	trade surplus
+1	trade policy
+1	trade agreement
+1	trade pact
+1	trade imbalance
+1	balance of trade
+1	free trade
+1	fair trade
+1	unfair trade
+1	trade barrier
+1	trade representative
+1	ustr
+1	trading partner
+1	border tax
+1	external revenue
+1	import
+1	imported
+1	importer
+1	importing
+1	export
+1	exported
+1	exporter
+1	exporting
+1	currency manipulat
+1	devalu
+1	intellectual property
+1	forced technology
+1	foreign goods
+2	manufactur
+2	factory
+2	factories
+2	supply chain
+2	reshor
+2	onshor
+2	offshor
+2	outsourc
+2	nearshor
+2	inflation
+2	deflation
+2	recession
+2	depression
+2	gdp
+2	gnp
+2	unemployment
+2	interest rate
+2	rate cut
+2	rate hike
+2	federal reserve
+2	fed chair
+2	powell
+2	quantitative easing
+2	quantitative tightening
+2	stock market
+2	tax cut
+2	taxes
+2	taxation
+2	corporate tax
+2	deficit
+2	national debt
+2	steel
+2	aluminum
+2	aluminium
+2	semiconductor
+2	chips
+2	chips act
+2	chips and science
+2	automobile
+2	automotive
+2	automaker
+2	carmaker
+2	auto industry
+2	gasoline
+2	diesel
+2	farmer
+2	farmers
+2	farming
+2	farms
+2	agriculture
+2	agricultural
+2	soybean
+2	pharmaceutical
+2	pharma
+2	drug price
+2	drug prices
+2	sanction
+2	subsid
+2	buy american
+2	made in china
+2	made in mexico
+2	made in america
+2	made in the usa
+2	oil price
+2	energy price
+2	natural gas
+2	opec
+2	wage
+2	wages
+2	layoff
+2	laid off
+2	econom
+2	cost of living
+2	cpi
+2	wall street
+2	nasdaq
+2	dow jones
+2	s&p
+3	trade
+3	trades
+3	trading
+3	job
+3	jobs
+3	jobless
+3	employment
+3	paycheck
+3	price
+3	prices
+3	price of
+3	growth
+3	dollar
+3	strong dollar
+3	weak dollar
+3	invest
+3	investment
+3	investor
+3	middle class
+3	worker
+3	workers
+3	american worker
+3	business
+3	businesses
+3	small business
+3	deregul
+3	regulat
+3	plant
+3	stimulus
+3	stock
+3	stocks
+3	bull market
+3	bear market
+3	infrastructure
+3	decoup
+3	industrial polic
+3	bring back
+3	bring manufacturing
+3	bring jobs
+3	copper
+3	lumber
+3	timber
+3	rare earth
+3	mining
+3	mineral
+3	chipmaker
+3	microchip
+3	nvidia
+3	tsmc
+3	intel
+3	foundry
+3	autos
+3	car
+3	cars
+3	vehicle
+3	vehicles
+3	truck
+3	trucks
+3	electric vehicle
+3	ev
+3	evs
+3	battery
+3	batteries
+3	lithium
+3	detroit
+3	ford
+3	general motors
+3	stellantis
+3	oil
+3	crude
+3	lng
+3	pipeline
+3	refiner
+3	drilling
+3	frack
+3	coal
+3	energy
+3	solar
+3	wind turbine
+3	nuclear
+3	corn
+3	wheat
+3	beef
+3	pork
+3	dairy
+3	cattle
+3	harvest
+3	crop
+3	insulin
+3	prescription
+3	mill
+3	smelter
+3	shipyard
+3	port
+3	freight
+3	container
+3	boeing
+3	airbus
+3	huawei
+3	tiktok
+3	grocer
+3	grocery
+3	mortgage
+3	housing
+3	home price
+3	bank
+3	banks
+3	inflation reduction
+3	green new deal
+3	rip off
+3	ripping
+3	rip us
+3	fentanyl

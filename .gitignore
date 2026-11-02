@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.env
+# generated from the raw archive, rebuilt by the scripts
+candidates.csv
+queue.csv
+excluded_no_keyword.csv
+excluded_sample.csv
+screen_cache.jsonl
+labels_wide.csv
+labels_long.csv
+gold.csv
+agreement.txt
+collect_report.txt

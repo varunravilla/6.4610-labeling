@@ -1,0 +1,543 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trade Post Labeler</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@400;500&display=swap">
+<style>
+/* Two panes: the post on the left like a wire clipping, the ledger of industries on the right. */
+:root {
+  --bg: #f3f4f1; --panel: #ffffff; --ink: #1a1d1b; --muted: #5f6661; --line: #d9ddd7; --focus: #2f5d8a;
+  --pos: #1e7a46; --pos-bg: #e3f3e9; --neg: #b02a2a; --neg-bg: #f8e3e1;
+  --neu: #4f5752; --neu-bg: #ebedea; --unc: #8a5a00; --unc-bg: #fbf0d6;
+  --sans: "IBM Plex Sans", system-ui, sans-serif; --serif: "IBM Plex Serif", Georgia, serif;
+  --mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) { :root {
+  --bg: #141715; --panel: #1c201e; --ink: #e7ebe8; --muted: #9aa39d; --line: #2e3430; --focus: #7fb0e0;
+  --pos: #6fd39a; --pos-bg: #183424; --neg: #ff8f86; --neg-bg: #3a1d1b;
+  --neu: #b9c1bc; --neu-bg: #262b28; --unc: #f0c060; --unc-bg: #3a2f14; color-scheme: dark; } }
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.5 var(--sans); }
+header { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: baseline; justify-content: space-between;
+  padding: 14px max(16px, env(safe-area-inset-left)); border-bottom: 1px solid var(--line); background: var(--panel); }
+header h1 { font-size: 16px; margin: 0; font-weight: 600; letter-spacing: .01em; }
+header nav { display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap; font-size: 14px; }
+#progress { font-family: var(--mono); font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+main { max-width: 1180px; margin: 0 auto; padding: 20px max(16px, env(safe-area-inset-left)) 60px; }
+.grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 470px); gap: 24px; align-items: start; }
+@media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 18px; }
+.eyebrow { font-family: var(--mono); font-size: 11.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 12px; }
+.post-text { font-family: var(--serif); font-size: 17px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; }
+.guide { margin-top: 16px; font-size: 13.5px; color: var(--muted); }
+.guide summary { cursor: pointer; color: var(--ink); font-weight: 500; }
+.guide ul { padding-left: 18px; margin: 8px 0 0; display: grid; gap: 4px; }
+a { color: var(--focus); }
+button, select, input { font: inherit; color: inherit; }
+button { cursor: pointer; border: 1px solid var(--line); background: var(--panel); border-radius: 5px; padding: 7px 12px; }
+button:hover { border-color: var(--muted); }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+button.primary { background: var(--ink); color: var(--panel); border-color: var(--ink); font-weight: 500; }
+button.primary:disabled { opacity: .35; cursor: not-allowed; }
+.link { border: 0; background: none; padding: 0; color: var(--focus); text-decoration: underline; }
+kbd { font-family: var(--mono); font-size: 11px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 3px; padding: 0 4px; color: var(--muted); }
+.relevance { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+.relevance .q { font-weight: 600; margin-right: 6px; }
+.relevance button[aria-pressed="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+.ledger { display: grid; gap: 2px; }
+.row { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 5px 6px; border-radius: 4px; }
+.row.active { background: var(--neu-bg); }
+.row .num { font-family: var(--mono); font-size: 12px; color: var(--muted); text-align: right; visibility: hidden; }
+.row.active .num { visibility: visible; }
+.row .name { font-size: 14px; min-width: 0; }
+.row .name small { font-family: var(--mono); color: var(--muted); font-size: 11px; margin-left: 4px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 5px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; padding: 4px 8px; font-size: 12.5px; min-width: 34px; background: transparent; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[data-v="positive"][aria-pressed="true"] { background: var(--pos-bg); color: var(--pos); font-weight: 600; }
+.seg button[data-v="negative"][aria-pressed="true"] { background: var(--neg-bg); color: var(--neg); font-weight: 600; }
+.seg button[data-v="neutral"][aria-pressed="true"] { background: var(--neu-bg); color: var(--neu); font-weight: 600; }
+.seg button[data-v="uncertain"][aria-pressed="true"] { background: var(--unc-bg); color: var(--unc); font-weight: 600; }
+.tools { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; align-items: center; }
+.extra { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 5px 6px; }
+.extra input { width: 9em; border: 1px solid var(--line); border-radius: 4px; padding: 3px 6px; background: var(--panel); }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.status { font-size: 13.5px; min-height: 1.4em; }
+.status.err { color: var(--neg); }
+.legend { font-size: 12.5px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 10px; }
+.login { max-width: 380px; margin: 60px auto; display: grid; gap: 14px; }
+.login label { display: grid; gap: 4px; font-size: 13.5px; color: var(--muted); }
+.login select, .login input { padding: 8px 10px; border: 1px solid var(--line); border-radius: 5px; background: var(--panel); }
+.banner { background: var(--unc-bg); color: var(--unc); border-radius: 5px; padding: 8px 12px; margin-bottom: 12px; font-size: 14px; }
+.compare { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.compare th, .compare td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--line); }
+.compare tr.diff td { background: var(--unc-bg); }
+.tablewrap { overflow-x: auto; margin-bottom: 12px; }
+.empty { text-align: center; padding: 50px 16px; color: var(--muted); }
+textarea { width: 100%; }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Trade Post Labeler <span class="eyebrow">6.4610</span></h1>
+  <nav id="nav" hidden>
+    <span id="progress"></span>
+    <button class="link" id="go-label" type="button">Label</button>
+    <button class="link" id="go-resolve" type="button">Resolve</button>
+    <span id="whoami" class="eyebrow"></span>
+    <button class="link" id="logout" type="button">Switch person</button>
+  </nav>
+</header>
+
+<main>
+  <section id="login-view" class="login panel" hidden>
+    <div class="eyebrow">Sign in</div>
+    <label>Who are you?
+      <select id="login-name"><option value="">Choose your name</option></select>
+    </label>
+    <label>Team passcode
+      <input id="login-pass" type="password" autocomplete="current-password">
+    </label>
+    <button class="primary" id="login-btn" type="button">Start labeling</button>
+    <div class="status err" id="login-status" role="alert"></div>
+  </section>
+
+  <section id="label-view" hidden>
+    <div id="edit-banner" class="banner" hidden></div>
+    <div class="grid">
+      <article class="panel">
+        <div class="meta">
+          <span class="eyebrow" id="post-date"></span>
+          <span class="eyebrow" id="post-tags"></span>
+          <a id="post-link" target="_blank" rel="noopener" class="eyebrow">Original ↗</a>
+        </div>
+        <p class="post-text" id="post-text"></p>
+        <details class="guide" open>
+          <summary>Guideline</summary>
+          <ul>
+            <li><b>Relevant</b> = about cross-border trade (tariffs, duties, quotas, deals, import/export limits, deficits) <i>or</i> a policy or concrete claim that would change costs, prices, production, jobs, or demand for an industry or the economy.</li>
+            <li><b>Not relevant</b>: rallies, endorsements, legal fights, media attacks, cheerleading with no policy or mechanism.</li>
+            <li>Judge the <b>next year</b>, assuming the stated policy happens, using only what was public at the post's time.</li>
+            <li><b>Neutral</b> = no identifiable material effect. <b>Uncertain</b> = too thin, or effects compete.</li>
+            <li>Steel tariffs: steel positive, autos often negative (they buy steel). Give each industry its own call.</li>
+            <li><b>Broad economy</b> = across-the-board claims with no industry split.</li>
+          </ul>
+        </details>
+      </article>
+
+      <form class="panel" id="label-form" onsubmit="return false">
+        <div class="relevance">
+          <span class="q">Relevant?</span>
+          <button type="button" id="rel-yes" aria-pressed="false">Yes <kbd>Y</kbd></button>
+          <button type="button" id="rel-no" aria-pressed="false">No <kbd>N</kbd></button>
+        </div>
+        <div id="industries" hidden>
+          <div class="eyebrow" style="margin-bottom:6px">Impact over the next year</div>
+          <div class="ledger" id="ledger"></div>
+          <div class="tools">
+            <button type="button" id="rest-neutral">Rest → neutral <kbd>R</kbd></button>
+            <select id="extra-pick" aria-label="Add another industry">
+              <option value="">+ industry</option>
+              <option value="defense">Defense</option>
+              <option value="aerospace">Aerospace</option>
+              <option value="minerals_metals">Minerals & metals</option>
+              <option value="shipping">Shipping & ports</option>
+              <option value="lumber_housing">Lumber & housing</option>
+              <option value="other">Other…</option>
+            </select>
+          </div>
+          <div id="extras"></div>
+          <div class="legend"><span><kbd>1</kbd> positive</span><span><kbd>2</kbd> negative</span><span><kbd>3</kbd> neutral</span><span><kbd>4</kbd> uncertain</span><span><kbd>↑</kbd><kbd>↓</kbd> row</span></div>
+        </div>
+        <div class="actions">
+          <button class="primary" type="button" id="submit" disabled>Submit <kbd>Enter</kbd></button>
+          <button type="button" id="skip">Skip <kbd>S</kbd></button>
+          <button type="button" id="back">Back <kbd>B</kbd></button>
+          <span class="status" id="status" role="status"></span>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <section id="done-view" class="panel empty" hidden>
+    <p><b>Nothing left in the queue for you right now.</b></p>
+    <p>Other people may be holding the last posts. Check again in a few minutes, or open Resolve.</p>
+    <button type="button" id="refresh">Check again</button>
+  </section>
+
+  <section id="resolve-view" hidden>
+    <div class="grid">
+      <article class="panel">
+        <div class="meta"><span class="eyebrow" id="r-date"></span><a id="r-link" target="_blank" rel="noopener" class="eyebrow">Original ↗</a></div>
+        <p class="post-text" id="r-text"></p>
+      </article>
+      <div class="panel">
+        <div class="eyebrow" style="margin-bottom:8px">Where the two labels differ</div>
+        <div class="tablewrap"><table class="compare" id="r-table"></table></div>
+        <div class="tools" id="r-pick"></div>
+        <p class="status">Start from one label, adjust it in Label view style below, then save the final answer.</p>
+        <div id="r-form-slot"></div>
+        <label class="eyebrow" for="r-note">Note (optional)</label>
+        <input id="r-note" style="width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:4px;background:var(--panel)">
+        <div class="actions">
+          <button class="primary" type="button" id="r-submit" disabled>Save final label</button>
+          <span class="status" id="r-status" role="status"></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="resolve-empty" class="panel empty" hidden>
+    <p><b>No disagreements waiting for you.</b></p>
+    <p>You only see conflicts on posts you didn't label.</p>
+  </section>
+</main>
+
+<script src="config.js"></script>
+<script>
+const CORE = [
+  ["steel_aluminum", "Steel & aluminum", "SLX"], ["autos", "Autos", "CARZ"], ["semiconductors", "Semiconductors", "SOXX"],
+  ["agriculture", "Agriculture", "MOO"], ["energy", "Energy", "XLE"], ["pharmaceuticals", "Pharma", "PPH"],
+  ["technology", "Tech", "XLK"], ["financials", "Financials", "XLF"], ["consumer_retail", "Consumer & retail", "XRT"],
+  ["broad_economy", "Broad economy", ""],
+];
+const EXTRA_NAMES = { defense: "Defense", aerospace: "Aerospace", minerals_metals: "Minerals & metals",
+  shipping: "Shipping & ports", lumber_housing: "Lumber & housing", other: "Other" };
+const IMPACTS = [["positive", "+"], ["negative", "−"], ["neutral", "0"], ["uncertain", "?"]];
+const GROUPS = { 1: "2nd term", 2: "earlier", 3: "low relevance" };
+const $ = (id) => document.getElementById(id);
+const cfg = window.LABELING_CONFIG;
+
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+  del(k) { try { localStorage.removeItem(k); } catch {} },
+};
+
+async function rpc(fn, args = {}) {
+  const res = await fetch(`${cfg.supabaseUrl}/rest/v1/rpc/${fn}`, {
+    method: "POST",
+    headers: { apikey: cfg.supabaseAnonKey, Authorization: `Bearer ${cfg.supabaseAnonKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify(args),
+  });
+  const body = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(friendly((body && body.message) || res.statusText));
+  return body;
+}
+function friendly(msg) {
+  if (msg.includes("bad_passcode")) return "Wrong team passcode.";
+  if (msg.includes("unknown_annotator")) return "That name isn't on the team list.";
+  if (msg.includes("post_full")) return "This post already has all the labels it needs. Loading the next one.";
+  if (msg.includes("not_independent")) return "You labeled this post, so someone else has to resolve it.";
+  return msg.replace(/^invalid_label: /, "Label incomplete: ");
+}
+
+let me = { name: store.get("labeler_name"), pass: store.get("labeler_pass") };
+const auth = () => ({ p_annotator: me.name, p_passcode: me.pass });
+
+// ---------------------------------------------------------------- a reusable label editor
+
+function makeEditor(container, onChange) {
+  const state = { relevant: null, impacts: {}, extras: [], active: 0 };
+  container.innerHTML = "";
+  const ledger = document.createElement("div");
+  ledger.className = "ledger";
+  container.append(ledger);
+
+  CORE.forEach(([key, name, etf], i) => {
+    const row = document.createElement("div");
+    row.className = "row";
+    row.dataset.key = key;
+    row.innerHTML = `<span class="num">›</span><span class="name"></span><span class="seg"></span>`;
+    row.querySelector(".name").textContent = name;
+    if (etf) row.querySelector(".name").insertAdjacentHTML("beforeend", `<small>${etf}</small>`);
+    for (const [v, sym] of IMPACTS) {
+      const b = document.createElement("button");
+      b.type = "button"; b.dataset.v = v; b.textContent = sym; b.title = v;
+      b.setAttribute("aria-label", `${name}: ${v}`);
+      b.addEventListener("click", () => { state.active = i; set(key, v); });
+      row.querySelector(".seg").append(b);
+    }
+    row.addEventListener("click", () => { state.active = i; paint(); });
+    ledger.append(row);
+  });
+
+  function set(key, v) { state.impacts[key] = v; paint(); onChange(); }
+  function paint() {
+    ledger.querySelectorAll(".row").forEach((row, i) => {
+      row.classList.toggle("active", i === state.active);
+      row.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(state.impacts[row.dataset.key] === b.dataset.v)));
+    });
+  }
+  return {
+    state, paint,
+    complete: () => state.relevant === false || (state.relevant === true && CORE.every(([k]) => state.impacts[k])
+      && state.extras.every((e) => e.impact && (e.industry !== "other" || (e.other_name || "").trim()))),
+    restNeutral() { CORE.forEach(([k]) => { if (!state.impacts[k]) state.impacts[k] = "neutral"; }); paint(); onChange(); },
+    key(n) { // number keys: 1-4 set impact on the active row, then move down
+      const v = IMPACTS[n - 1][0];
+      set(CORE[state.active][0], v);
+      state.active = Math.min(state.active + 1, CORE.length - 1); paint();
+    },
+    move(d) { state.active = Math.max(0, Math.min(CORE.length - 1, state.active + d)); paint(); },
+    load(label) {
+      state.relevant = label ? label.relevant : null;
+      state.impacts = label && label.relevant ? { ...label.impacts } : {};
+      state.extras = label && label.relevant ? label.extras.map((e) => ({ ...e })) : [];
+      state.active = 0; paint();
+    },
+    payload() {
+      const neutral = Object.fromEntries(CORE.map(([k]) => [k, "neutral"]));
+      return state.relevant
+        ? { p_relevant: true, p_impacts: state.impacts, p_extras: state.extras.map((e) => e.industry === "other" ? e : { industry: e.industry, impact: e.impact }) }
+        : { p_relevant: false, p_impacts: neutral, p_extras: [] };
+    },
+  };
+}
+
+function renderExtras(slot, editor, onChange) {
+  slot.innerHTML = "";
+  editor.state.extras.forEach((e, idx) => {
+    const div = document.createElement("div");
+    div.className = "extra";
+    const name = document.createElement("span");
+    name.textContent = EXTRA_NAMES[e.industry];
+    div.append(name);
+    if (e.industry === "other") {
+      const inp = document.createElement("input");
+      inp.placeholder = "which industry"; inp.value = e.other_name || ""; inp.id = `extra-name-${idx}`;
+      inp.addEventListener("input", () => { e.other_name = inp.value; onChange(); });
+      div.append(inp);
+    }
+    const seg = document.createElement("span"); seg.className = "seg";
+    for (const [v, sym] of IMPACTS) {
+      const b = document.createElement("button");
+      b.type = "button"; b.dataset.v = v; b.textContent = sym; b.title = v;
+      b.setAttribute("aria-pressed", String(e.impact === v));
+      b.addEventListener("click", () => { e.impact = v; renderExtras(slot, editor, onChange); onChange(); });
+      seg.append(b);
+    }
+    const rm = document.createElement("button");
+    rm.type = "button"; rm.className = "link"; rm.textContent = "remove";
+    rm.addEventListener("click", () => { editor.state.extras.splice(idx, 1); renderExtras(slot, editor, onChange); onChange(); });
+    div.append(seg, rm);
+    slot.append(div);
+  });
+}
+
+// ---------------------------------------------------------------- views
+
+const views = ["login-view", "label-view", "done-view", "resolve-view", "resolve-empty"];
+function show(id) { views.forEach((v) => ($(v).hidden = v !== id)); $("nav").hidden = id === "login-view"; mode = id; }
+let mode = "login-view";
+
+function fmtDate(iso) {
+  return new Date(iso).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: "America/New_York" }) + " ET";
+}
+
+async function refreshProgress() {
+  try {
+    const p = await rpc("progress", auth());
+    const groups = p.groups.map((g) => `${GROUPS[g.queue_group]} ${g.done}/${g.total}`).join(" · ");
+    $("progress").textContent = `${groups} · you ${p.mine}` + (p.conflicts_open ? ` · ${p.conflicts_open} to resolve` : "");
+    $("progress").title = Object.entries(p.annotators).map(([n, c]) => `${n}: ${c}`).join("\n");
+  } catch {}
+}
+
+// ---------------------------------------------------------------- labeling
+
+let current = null;      // post being labeled
+let editingAt = null;    // labeled_at of the label being edited via Back, else null
+const editor = makeEditor($("ledger"), updateSubmit);
+
+function setRelevant(v) {
+  editor.state.relevant = v;
+  $("rel-yes").setAttribute("aria-pressed", String(v === true));
+  $("rel-no").setAttribute("aria-pressed", String(v === false));
+  $("industries").hidden = v !== true;
+  updateSubmit();
+}
+function updateSubmit() { $("submit").disabled = !current || !editor.complete(); }
+function say(msg, err) { $("status").textContent = msg || ""; $("status").className = "status" + (err ? " err" : ""); }
+
+function showPost(post, label) {
+  current = post;
+  $("post-text").textContent = post.text;
+  $("post-date").textContent = fmtDate(post.created_at);
+  $("post-tags").textContent = `${GROUPS[post.queue_group]} · tier ${post.tier}${post.double_label ? " · double-labeled" : ""}`;
+  $("post-link").href = post.url || "#";
+  $("post-link").hidden = !post.url;
+  editor.load(label || null);
+  setRelevant(label ? label.relevant : null);
+  renderExtras($("extras"), editor, updateSubmit);
+  show("label-view");
+  window.scrollTo(0, 0);
+}
+
+async function loadNext() {
+  editingAt = null; $("edit-banner").hidden = true; say("");
+  try {
+    const post = await rpc("next_post", auth());
+    if (!post) { current = null; show("done-view"); } else showPost(post);
+  } catch (e) { say(e.message, true); }
+  refreshProgress();
+}
+
+async function submit() {
+  if ($("submit").disabled) return;
+  $("submit").disabled = true; say("Saving…");
+  try {
+    await rpc("submit_label", { ...auth(), p_post_id: current.id, ...editor.payload() });
+    await loadNext();
+  } catch (e) {
+    say(e.message, true);
+    if (e.message.startsWith("This post already")) setTimeout(loadNext, 1200); else updateSubmit();
+  }
+}
+
+async function back() {
+  try {
+    const prev = await rpc("previous_label", { ...auth(), p_before: editingAt });
+    if (!prev) { say("No earlier labels."); return; }
+    editingAt = prev.labeled_at;
+    $("edit-banner").textContent = `Editing your label from ${fmtDate(prev.labeled_at)}. Submit saves the change and returns to the queue.`;
+    $("edit-banner").hidden = false;
+    showPost(prev.post, prev);
+    say("");
+  } catch (e) { say(e.message, true); }
+}
+
+$("rel-yes").addEventListener("click", () => setRelevant(true));
+$("rel-no").addEventListener("click", () => { setRelevant(false); submit(); });
+$("rest-neutral").addEventListener("click", () => editor.restNeutral());
+$("extra-pick").addEventListener("change", (ev) => {
+  const v = ev.target.value; ev.target.value = "";
+  if (!v || (v !== "other" && editor.state.extras.some((e) => e.industry === v))) return;
+  editor.state.extras.push({ industry: v, impact: null, other_name: "" });
+  renderExtras($("extras"), editor, updateSubmit); updateSubmit();
+});
+$("submit").addEventListener("click", submit);
+$("skip").addEventListener("click", async () => {
+  if (!current || editingAt) return loadNext();
+  try { await rpc("skip_post", { ...auth(), p_post_id: current.id }); } catch (e) { return say(e.message, true); }
+  loadNext();
+});
+$("back").addEventListener("click", back);
+$("refresh").addEventListener("click", loadNext);
+
+document.addEventListener("keydown", (ev) => {
+  if (mode !== "label-view" || ev.metaKey || ev.ctrlKey || ev.altKey) return;
+  if (["INPUT", "SELECT", "TEXTAREA"].includes(document.activeElement.tagName)) return;
+  const k = ev.key.toLowerCase();
+  if (k === "y") setRelevant(true);
+  else if (k === "n") { setRelevant(false); submit(); }
+  else if (k === "s") $("skip").click();
+  else if (k === "b") back();
+  else if (k === "enter") { ev.preventDefault(); submit(); }
+  else if (editor.state.relevant && k === "r") editor.restNeutral();
+  else if (editor.state.relevant && ["1", "2", "3", "4"].includes(k)) editor.key(Number(k));
+  else if (editor.state.relevant && k === "arrowdown") { ev.preventDefault(); editor.move(1); }
+  else if (editor.state.relevant && k === "arrowup") { ev.preventDefault(); editor.move(-1); }
+  else return;
+});
+
+// ---------------------------------------------------------------- resolving
+
+let conflict = null, rEditor = null;
+function rUpdate() { $("r-submit").disabled = !conflict || !rEditor.complete(); }
+
+async function loadConflict() {
+  $("r-status").textContent = "";
+  try { conflict = await rpc("next_conflict", auth()); } catch (e) { $("r-status").textContent = e.message; return; }
+  refreshProgress();
+  if (!conflict) { show("resolve-empty"); return; }
+  const [a, b] = conflict.labels;
+  $("r-text").textContent = conflict.post.text;
+  $("r-date").textContent = fmtDate(conflict.post.created_at);
+  $("r-link").href = conflict.post.url || "#";
+
+  const rows = [["Relevant", a.relevant ? "yes" : "no", b.relevant ? "yes" : "no"]]
+    .concat(CORE.map(([k, n]) => [n, a.relevant ? a.impacts[k] : "–", b.relevant ? b.impacts[k] : "–"]))
+    .concat([["Extras", a.extras.map((e) => `${e.other_name || e.industry}:${e.impact}`).join(", ") || "–",
+                        b.extras.map((e) => `${e.other_name || e.industry}:${e.impact}`).join(", ") || "–"]]);
+  const t = $("r-table"); t.innerHTML = "";
+  const head = t.insertRow(); ["", a.annotator, b.annotator].forEach((h) => { const th = document.createElement("th"); th.textContent = h; head.append(th); });
+  rows.forEach(([n, x, y]) => { const tr = t.insertRow(); if (x !== y) tr.className = "diff"; [n, x, y].forEach((v) => (tr.insertCell().textContent = v)); });
+
+  const slot = $("r-form-slot"); slot.innerHTML = "";
+  const rel = document.createElement("div"); rel.className = "relevance";
+  rel.innerHTML = `<span class="q">Relevant?</span><button type="button" data-r="1">Yes</button><button type="button" data-r="0">No</button>`;
+  const ledgerHost = document.createElement("div"); const extrasHost = document.createElement("div");
+  const tools = document.createElement("div"); tools.className = "tools";
+  tools.innerHTML = `<button type="button">Rest → neutral</button>`;
+  slot.append(rel, ledgerHost, tools, extrasHost);
+  rEditor = makeEditor(ledgerHost, rUpdate);
+  const setRel = (v) => {
+    rEditor.state.relevant = v;
+    rel.querySelectorAll("button").forEach((btn) => btn.setAttribute("aria-pressed", String((btn.dataset.r === "1") === v)));
+    ledgerHost.hidden = tools.hidden = extrasHost.hidden = !v; rUpdate();
+  };
+  rel.querySelectorAll("button").forEach((btn) => btn.addEventListener("click", () => setRel(btn.dataset.r === "1")));
+  tools.querySelector("button").addEventListener("click", () => rEditor.restNeutral());
+  const start = (label) => { rEditor.load(label); setRel(label.relevant); renderExtras(extrasHost, rEditor, rUpdate); };
+
+  const pick = $("r-pick"); pick.innerHTML = "";
+  [a, b].forEach((l) => {
+    const btn = document.createElement("button"); btn.type = "button"; btn.textContent = `Start from ${l.annotator}'s`;
+    btn.addEventListener("click", () => start(l)); pick.append(btn);
+  });
+  start(a);
+  $("r-note").value = "";
+  show("resolve-view");
+}
+
+$("r-submit").addEventListener("click", async () => {
+  $("r-submit").disabled = true;
+  try {
+    await rpc("submit_gold", { ...auth(), p_post_id: conflict.post.id, ...rEditor.payload(), p_note: $("r-note").value });
+    loadConflict();
+  } catch (e) { $("r-status").textContent = e.message; rUpdate(); }
+});
+$("go-resolve").addEventListener("click", loadConflict);
+$("go-label").addEventListener("click", loadNext);
+
+// ---------------------------------------------------------------- login
+
+async function startLogin() {
+  show("login-view");
+  try {
+    const names = await rpc("annotator_names");
+    names.forEach((n) => $("login-name").add(new Option(n, n)));
+    if (me.name) $("login-name").value = me.name;
+  } catch (e) {
+    $("login-status").textContent = cfg.supabaseUrl.startsWith("PASTE")
+      ? "This site isn't connected to the database yet (config.js)." : `Can't reach the database: ${e.message}`;
+  }
+}
+$("login-btn").addEventListener("click", async () => {
+  const name = $("login-name").value, pass = $("login-pass").value;
+  if (!name) { $("login-status").textContent = "Choose your name."; return; }
+  try { await rpc("check_login", { p_annotator: name, p_passcode: pass }); }
+  catch (e) { $("login-status").textContent = e.message; return; }
+  me = { name, pass }; store.set("labeler_name", name); store.set("labeler_pass", pass);
+  $("whoami").textContent = name;
+  loadNext();
+});
+$("login-pass").addEventListener("keydown", (e) => { if (e.key === "Enter") $("login-btn").click(); });
+$("logout").addEventListener("click", () => { store.del("labeler_pass"); me = { name: me.name, pass: null }; $("login-pass").value = ""; startLogin(); });
+
+(async () => {
+  if (me.name && me.pass) {
+    try { await rpc("check_login", auth()); $("whoami").textContent = me.name; return loadNext(); } catch {}
+  }
+  startLogin();
+})();
+</script>
+</body>
+</html>
