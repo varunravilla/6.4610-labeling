@@ -17,7 +17,7 @@ from pathlib import Path
 
 import psycopg
 
-from gemini_screen import load_env
+from env import load_env
 
 HERE = Path(__file__).parent
 csv.field_size_limit(sys.maxsize)
@@ -55,7 +55,7 @@ def read_queue(path: Path) -> list[dict]:
     with open(path, newline="") as f:
         return [{**r, "tier": int(r["tier"]), "queue_group": int(r["queue_group"]),
                  "queue_rank": int(r["queue_rank"]), "matched_terms": r["matched_terms"].split("|"),
-                 "gemini_relevant": boolish(r["gemini_relevant"]), "double_label": r["double_label"] == "True"}
+                 "gemini_relevant": boolish(r.get("gemini_relevant", "")), "double_label": r["double_label"] == "True"}
                 for r in csv.DictReader(f)]
 
 

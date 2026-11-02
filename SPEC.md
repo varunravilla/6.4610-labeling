@@ -3,6 +3,8 @@
 Status: ready-for-agent
 Supersedes `LABELING_AGENT_BRIEF.md` wherever the two differ. Anything this spec does not mention (lexicon terms, hard-drop rules) is taken from the brief unchanged.
 
+> **Revision, 2026-11-02:** the Gemini relevance screen is dropped. The queue is now keyword-only: tier 1 + tier 2 matches, with posts containing "endorsement" removed. That gives 1,596 posts, ordered **newest first**, with no relevance groups. `queue_group` now only marks the era: 1 = second term, 2 = earlier. Tier 3 and partner-plus-money posts are left out and listed in `excluded.csv` with a reason. CSV text that had been decoded as Latin-1 upstream is repaired. Sections below that mention Gemini or the three-group order describe the original plan.
+
 ## Problem Statement
 
 Our 6.4610 project (Wyatt Alford, Matthew Zhou, Varun Ravilla, Kevin Zhang) trains a classifier that predicts how a Trump Truth Social post affects specific industries, and tests whether those predictions help forecast industry ETF out-performance. That needs human labels: for each post, whether it is trade-related or market-relevant at all, and for each industry, whether the post implies a positive, negative, neutral, or uncertain effect.

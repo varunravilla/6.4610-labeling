@@ -27,16 +27,12 @@ The raw files `data.json` and `djt_posts_dec2025.csv` sit in the folder above th
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 cp .env.example .env              # fill in every PASTE_/PICK_ value
-.venv/bin/python build_candidates.py   # keyword queue -> candidates.csv, MANIFEST.txt
-.venv/bin/python gemini_screen.py      # relevance screen -> queue.csv, RUN.md
+.venv/bin/python build_candidates.py   # keyword queue -> queue.csv, excluded.csv, MANIFEST.txt
 .venv/bin/python load_supabase.py       # schema + docs/config.js + posts + passcode, all from .env
 .venv/bin/python export.py             # any time: labels -> CSVs + agreement.txt
 ```
 
-How `gemini_screen.py` handles problems:
-- **Gemini fails:** if the key is missing or invalid, quota runs out, or the network fails, it keeps the answers it has and still writes `queue.csv`. Unscreened posts count as relevant.
-- **Resuming:** rerun it later to screen the rest. Answers are cached in `screen_cache.jsonl`.
-- **Before loading:** re-screening only changes the order, and only matters before `load_supabase.py`.
+The queue keeps posts that match a tier 1 (explicit trade) or tier 2 (economic mechanism) term in `lexicon.txt`. Endorsement posts are left out, because their stock "Grow our Economy, Cut Taxes" wording trips the economic terms. Posts are served newest first. `excluded.csv` lists every left-out post with its reason.
 
 The posts table freezes once anyone has labeled. After that, `load_supabase.py` only updates the schema, `config.js` and the passcode, so change `TEAM_PASSCODE` and rerun to rotate it.
 

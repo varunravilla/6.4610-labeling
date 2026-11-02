@@ -14,7 +14,7 @@ from pathlib import Path
 import psycopg
 from psycopg.rows import dict_row
 
-from gemini_screen import load_env
+from env import load_env
 
 HERE = Path(__file__).parent
 CORE = ["steel_aluminum", "autos", "semiconductors", "agriculture", "energy", "pharmaceuticals",

@@ -1,8 +1,10 @@
 """Builds the frozen labeling queue from the Truth Social sources.
 
-find_candidates() applies the hard drops and the keyword lexicon.
-order_queue() adds the Gemini relevance answer, the queue order, and the
-double-label sample. Both are pure: no files, no network.
+find_candidates() applies the hard drops and the keyword lexicon. The queue keeps
+tier 1 and tier 2 posts and leaves out endorsements, whose stock "Grow our Economy,
+Cut Taxes" wording trips the economic keywords.
+order_queue() orders the queue newest first and draws the double-label sample.
+Both are pure: no files, no network.
 """
 from __future__ import annotations
 
@@ -31,6 +33,9 @@ PARTNERS = (
     "european eu germany german vietnam korea korean taiwan brazil brazilian"
 ).split()
 
+QUEUE_TIERS = {1, 2}
+_ENDORSEMENT = re.compile(r"endorsement", re.I)
+_MOJIBAKE = re.compile("[\u00c2-\u00f4][\u0080-\u00bf]{1,3}")
 _URL = re.compile(r"https?://\S+")
 _LEFT = r"(?<![a-z0-9])"
 _RIGHT = r"(?![a-z0-9])"
@@ -70,6 +75,16 @@ _PARTNER_RE = re.compile(_LEFT + "(?:" + "|".join(PARTNERS) + ")" + _RIGHT)
 _MONEY_RE = re.compile(r"\$|%|" + _LEFT + r"(?:billion|billions|trillion|trillions|percent)" + _RIGHT)
 
 
+def _repair(text: str) -> str:
+    """Undo UTF-8 text that was decoded as Latin-1 somewhere upstream ("countriesâand")."""
+    def fix(m):
+        try:
+            return m.group(0).encode("latin-1").decode("utf-8")
+        except UnicodeDecodeError:
+            return m.group(0)
+    return html.unescape(_MOJIBAKE.sub(fix, text))
+
+
 def _normalize(text: str) -> str:
     return " ".join(text.casefold().split())
 
@@ -101,7 +116,7 @@ def _merge_sources(json_records: list[dict], csv_rows: list[dict]) -> list[dict]
         posts.append({
             "id": pid,
             "created_at": rec["created_at"],
-            "text": html.unescape(rec.get("content") or ""),
+            "text": _repair(rec.get("content") or ""),
             "url": rec.get("url") or "",
             "repost": (rec.get("content") or "").startswith("RT @") or (csv is not None and _truthy(csv.get("repost_flag"))),
             "deleted": csv is not None and _truthy(csv.get("deleted_flag")),
@@ -110,7 +125,7 @@ def _merge_sources(json_records: list[dict], csv_rows: list[dict]) -> list[dict]
         posts.append({
             "id": pid,
             "created_at": _iso(row["date"]),
-            "text": html.unescape(row.get("text") or ""),
+            "text": _repair(row.get("text") or ""),
             "url": row.get("post_url") or "",
             "repost": _truthy(row.get("repost_flag")) or (row.get("text") or "").startswith("RT @"),
             "deleted": _truthy(row.get("deleted_flag")),
@@ -148,29 +163,22 @@ def find_candidates(json_records: list[dict], csv_rows: list[dict], lexicon: lis
         elif _PARTNER_RE.search(norm) and _MONEY_RE.search(norm):
             row["tier"] = 3
             row["matched_terms"] = ["partner+money"]
-        else:
-            result.excluded.append(row)
-            continue
-        result.candidates.append(row)
 
-    result.candidates.sort(key=lambda r: (r["tier"], -len(r["matched_terms"]), r["created_at"]))
+        if "tier" not in row:
+            result.excluded.append({**row, "reason": "no_keyword"})
+        elif _ENDORSEMENT.search(norm):
+            result.excluded.append({**row, "reason": "endorsement"})
+        elif row["tier"] not in QUEUE_TIERS:
+            result.excluded.append({**row, "reason": "tier3_only"})
+        else:
+            result.candidates.append(row)
     return result
 
 
-def _queue_group(row: dict, relevant: bool | None) -> int:
-    if relevant is False:
-        return 3
-    return 1 if row["era"] == "second_term" else 2
-
-
-def order_queue(candidates: list[dict], screen: dict[str, bool]) -> list[dict]:
-    """Order candidates for labeling. A post with no screen answer counts as relevant,
-    so the queue still builds if the Gemini key is missing or stops working."""
-    rows = []
-    for c in candidates:
-        relevant = screen.get(c["id"])
-        rows.append({**c, "gemini_relevant": relevant, "queue_group": _queue_group(c, relevant)})
-    rows.sort(key=lambda r: (r["queue_group"], r["tier"], -len(r["matched_terms"]), r["created_at"], r["id"]))
+def order_queue(candidates: list[dict]) -> list[dict]:
+    """Newest post first. queue_group is 1 for the second term, 2 for earlier posts."""
+    rows = [{**c, "queue_group": 1 if c["era"] == "second_term" else 2} for c in candidates]
+    rows.sort(key=lambda r: (r["created_at"], r["id"]), reverse=True)
     for rank, r in enumerate(rows, start=1):
         r["queue_rank"] = rank
 

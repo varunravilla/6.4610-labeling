@@ -1,8 +1,10 @@
-"""Step 1: build the keyword candidate queue from data.json and the CSV.
+"""Step 1: build the labeling queue from data.json and the CSV.
 
     python build_candidates.py
 
-Writes candidates.csv, excluded_no_keyword.csv, excluded_sample.csv, MANIFEST.txt.
+Keeps tier 1 and tier 2 keyword matches, minus endorsements, newest first.
+Writes queue.csv, excluded.csv (with a reason per post), excluded_sample.csv
+(100 no-keyword posts across years, for a recall spot-check), and MANIFEST.txt.
 """
 import csv
 import hashlib
@@ -11,7 +13,7 @@ import random
 import sys
 from pathlib import Path
 
-from queue_builder import SEED, WINDOW_END, WINDOW_START, find_candidates, load_lexicon
+from queue_builder import SEED, WINDOW_END, WINDOW_START, find_candidates, load_lexicon, order_queue
 
 HERE = Path(__file__).parent
 ROOT = HERE.parent
@@ -45,23 +47,30 @@ def main():
         csv_rows = list(csv.DictReader(f))
     result = find_candidates(json_records, csv_rows, load_lexicon(HERE / "lexicon.txt"))
 
-    fields = ["id", "created_at", "era", "tier", "matched_terms", "url", "text"]
-    write_csv(HERE / "candidates.csv", result.candidates, fields)
-    write_csv(HERE / "excluded_no_keyword.csv", result.excluded, fields[:3] + fields[5:])
-    write_csv(HERE / "excluded_sample.csv", year_spread_sample(result.excluded), fields[:3] + fields[5:])
+    queue = order_queue(result.candidates)
+    write_csv(HERE / "queue.csv", queue, ["queue_rank", "queue_group", "id", "created_at", "era", "tier",
+                                          "matched_terms", "double_label", "url", "text"])
+    write_csv(HERE / "excluded.csv", result.excluded, ["id", "created_at", "era", "reason", "tier", "matched_terms", "url", "text"])
+    no_keyword = [r for r in result.excluded if r["reason"] == "no_keyword"]
+    write_csv(HERE / "excluded_sample.csv", year_spread_sample(no_keyword), ["id", "created_at", "era", "url", "text"])
 
-    digest = hashlib.sha256("\n".join(c["id"] + "\t" + c["text"] for c in result.candidates).encode()).hexdigest()
+    digest = hashlib.sha256("\n".join(c["id"] + "\t" + c["text"] for c in queue).encode()).hexdigest()
     counts = {}
-    for c in result.candidates:
+    for c in queue:
         counts[(c["era"], c["tier"])] = counts.get((c["era"], c["tier"]), 0) + 1
+    reasons = {}
+    for r in result.excluded:
+        reasons[r["reason"]] = reasons.get(r["reason"], 0) + 1
     lines = [
         f"window_start\t{WINDOW_START}",
         f"window_end_exclusive\t{WINDOW_END}",
-        f"candidates\t{len(result.candidates)}",
-        f"excluded_no_keyword\t{len(result.excluded)}",
+        "rule\ttier 1 + tier 2 keyword match, endorsements removed, newest first",
+        f"queue\t{len(queue)}",
+        f"double_labeled\t{sum(r['double_label'] for r in queue)}",
+        *[f"excluded\t{reason}\t{n}" for reason, n in sorted(reasons.items())],
         *[f"count\t{era}\ttier{tier}\t{n}" for (era, tier), n in sorted(counts.items())],
-        f"candidate_text_sha256\t{digest}",
-        "candidate_ids\t" + ",".join(c["id"] for c in result.candidates),
+        f"queue_text_sha256\t{digest}",
+        "queue_ids_in_order\t" + ",".join(c["id"] for c in queue),
     ]
     (HERE / "MANIFEST.txt").write_text("\n".join(lines) + "\n")
     print("\n".join(lines[:-1]))
