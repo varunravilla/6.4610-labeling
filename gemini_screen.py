@@ -116,7 +116,7 @@ class GeminiClient:
                 return json.loads(resp.read())
         except urllib.error.HTTPError as e:
             detail = e.read().decode(errors="replace")[:300]
-            if e.code == 429:
+            if e.code in (429, 503):  # quota window or temporary overload: wait and retry
                 raise RateLimited(detail) from e
             raise ScreenStopped(f"HTTP {e.code}: {detail}") from e
         except (urllib.error.URLError, TimeoutError) as e:
@@ -126,10 +126,11 @@ class GeminiClient:
         names = [m["name"].removeprefix("models/") for m in self._request(f"{API}/models?pageSize=200").get("models", [])
                  if "generateContent" in m.get("supportedGenerationMethods", [])]
         flash = [n for n in names if "flash" in n and not re.search(r"lite|image|tts|audio|live|thinking|exp", n)]
-        stable = [n for n in flash if "preview" not in n] or flash
+        stable = [n for n in flash if "preview" not in n and re.search(r"\d", n)] or flash
         if not stable:
             raise ScreenStopped("no Gemini Flash model available to this key; set GEMINI_MODEL in .env")
-        return sorted(stable)[-1]
+        # newest version number first, e.g. gemini-3.6-flash over gemini-2.5-flash
+        return max(stable, key=lambda n: [int(x) for x in re.findall(r"\d+", n)])
 
     def __call__(self, prompt: str, ids: list[str]) -> str:
         payload = {"contents": [{"parts": [{"text": prompt}]}],
